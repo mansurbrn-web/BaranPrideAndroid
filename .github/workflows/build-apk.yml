@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 jobs:
-  build-apk:
+  build:
     runs-on: ubuntu-latest
 
     steps:
@@ -45,4 +45,3 @@ jobs:
           name: BaranPride-APK
           path: BaranPrideAndroid/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-
