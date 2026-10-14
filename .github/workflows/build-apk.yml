@@ -1,4 +1,4 @@
-name: Build BARAN PRIDE V3.1 LIVE APK
+name: Build BARAN PRIDE V3.1 TWO FIXES
 
 'on':
   workflow_dispatch:
@@ -34,7 +34,7 @@ jobs:
 
       - name: Extract configured V3.1 project
         run: |
-          unzip -q BaranPride_V3_1_LIVE.zip
+          unzip -q BaranPride_V3_1_COMBINED_FIX_LIVE.zip
           test -f BaranPrideAndroid/app/build.gradle.kts
           test -f BaranPrideAndroid/app/src/main/assets/js/config.js
           python3 - <<'PY'
@@ -53,6 +53,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: BaranPride-V3.1-LIVE-APK
+          name: BaranPride-V3.1-Fixed-APK
           path: BaranPrideAndroid/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
