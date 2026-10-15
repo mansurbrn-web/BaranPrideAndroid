@@ -34,7 +34,7 @@ jobs:
 
       - name: Extract configured V3.1 project
         run: |
-          unzip -q BaranPride_V3_1_COMBINED_FIX_LIVE.zip
+          unzip -q BaranPride_V3_1_VALID.zip
           test -f BaranPrideAndroid/app/build.gradle.kts
           test -f BaranPrideAndroid/app/src/main/assets/js/config.js
           python3 - <<'PY'
