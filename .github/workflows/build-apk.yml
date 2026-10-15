@@ -1,4 +1,4 @@
-name: Build BARAN PRIDE V3.1 TWO FIXES
+name: Build BARAN PRIDE V3.1 FINAL LOGO APK
 
 'on':
   workflow_dispatch:
@@ -27,32 +27,44 @@ jobs:
       - name: Install Android SDK
         shell: bash
         run: |
-          set -e
+          set -euo pipefail
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           if [ ! -x "$SDKMANAGER" ]; then SDKMANAGER="$(command -v sdkmanager)"; fi
           "$SDKMANAGER" --sdk_root="$ANDROID_HOME" "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Extract configured V3.1 project
+      - name: Validate and extract FINAL configured source ZIP
+        shell: bash
         run: |
-          unzip -q BaranPride_V3_1_VALID.zip
+          set -euo pipefail
+          FILE="BaranPride_V3_1_FINAL_LOGO_LIVE.zip"
+          test -s "$FILE" || { echo "ERROR: Missing new project ZIP: $FILE"; exit 1; }
+          echo "Validating project ZIP (file type and archive integrity)..."
+          file "$FILE"
+          unzip -t "$FILE" >/dev/null || { echo "ERROR: Not a valid ZIP - compress the Windows project FOLDER again."; exit 1; }
+          unzip -q "$FILE"
           test -f BaranPrideAndroid/app/build.gradle.kts
           test -f BaranPrideAndroid/app/src/main/assets/js/config.js
-          python3 - <<'PY'
+          test -f BaranPrideAndroid/app/src/main/assets/img/baran-pride-blue-logo.png
+          test -f BaranPrideAndroid/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+          grep -q 'All Business Categories' BaranPrideAndroid/app/src/main/assets/js/app.js
+          grep -q 'baran-pride-blue-logo.png' BaranPrideAndroid/app/src/main/assets/js/app.js
+          python3 - <<'PYCONFIG'
           from pathlib import Path
-          p = Path('BaranPrideAndroid/app/src/main/assets/js/config.js')
-          s = p.read_text(encoding='utf-8')
-          assert all(x in s for x in ('apiKey:', 'projectId:', 'appId:')), 'Missing Firebase config fields'
-          assert 'apiKey: ""' not in s and 'projectId: ""' not in s and 'appId: ""' not in s, 'Firebase config is still blank'
-          print('Firebase app config: present (values not printed).')
-          PY
+          source=Path('BaranPrideAndroid/app/src/main/assets/js/config.js').read_text(encoding='utf-8')
+          for phrase in ['YOUR_API_KEY','YOUR_PROJECT_ID','YOUR_APP_ID']:
+              assert phrase not in source, 'Firebase placeholder remains in Android config: '+phrase
+          for field in ['apiKey:', 'projectId:', 'appId:']:
+              assert field in source, 'Firebase config missing '+field
+          print('Firebase config fields present (secret values not printed).')
+          PYCONFIG
 
       - name: Build Android Debug APK
         working-directory: BaranPrideAndroid
         run: gradle :app:assembleDebug --no-daemon
 
-      - name: Upload APK
+      - name: Upload test APK
         uses: actions/upload-artifact@v4
         with:
-          name: BaranPride-V3.1-Fixed-APK
+          name: BaranPride-V3.1-Final-Logo-APK
           path: BaranPrideAndroid/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
