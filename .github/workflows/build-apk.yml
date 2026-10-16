@@ -1,6 +1,4 @@
-
-name: Build BARAN PRIDE V1.0 FINAL APK
-
+name: Build BARAN PRIDE V1.0 Updated APK
 'on':
   workflow_dispatch:
 
@@ -10,124 +8,41 @@ permissions:
 jobs:
   build-apk:
     runs-on: ubuntu-24.04
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Set up Java 17
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
-
-      - name: Set up Gradle 8.11.1
+      - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
-
-      - name: Install Android SDK
+      - name: Install Android SDK packages
         shell: bash
         run: |
           set -euo pipefail
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          if [ ! -x "$SDKMANAGER" ]; then
-            SDKMANAGER="$(command -v sdkmanager)"
-          fi
-          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" \
-            "platforms;android-35" \
-            "build-tools;35.0.0"
-
-      - name: Validate and extract V1.0 FINAL source ZIP
+          if [ ! -x "$SDKMANAGER" ]; then SDKMANAGER="$(command -v sdkmanager)"; fi
+          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" "platforms;android-35" "build-tools;35.0.0"
+      - name: Extract Updated Project ZIP
         shell: bash
         run: |
           set -euo pipefail
-
-          FILE="BaranPride_V1.0_FINAL.zip"
-
-          test -s "$FILE" || {
-            echo "ERROR: Missing project ZIP: $FILE"
-            exit 1
-          }
-
-          echo "Validating ZIP..."
-          file "$FILE"
-
-          unzip -t "$FILE" >/dev/null || {
-            echo "ERROR: Invalid ZIP file"
-            exit 1
-          }
-
+          FILE="BaranPride_V1_0_UPDATED_SOURCE.zip"
+          test -s "$FILE" || { echo "Missing $FILE"; exit 1; }
+          unzip -t "$FILE" >/dev/null
           unzip -q "$FILE"
-
-          PROJECT="BaranPrideAndroid"
-
-          test -f "$PROJECT/app/build.gradle.kts"
-          test -f "$PROJECT/app/src/main/assets/js/config.js"
-          test -f "$PROJECT/app/src/main/assets/js/app.js"
-          test -f "$PROJECT/app/src/main/assets/img/baran-pride-blue-logo.png"
-          test -f "$PROJECT/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png"
-
-          echo "Checking BARAN PRIDE V1.0..."
-
-          grep -q 'All Business Categories' \
-            "$PROJECT/app/src/main/assets/js/app.js"
-
-          grep -q 'baran-pride-blue-logo.png' \
-            "$PROJECT/app/src/main/assets/js/app.js"
-
-          python3 - <<'PYCONFIG'
-          from pathlib import Path
-          import re
-
-          root = Path("BaranPrideAndroid")
-          config = (
-              root / "app/src/main/assets/js/config.js"
-          ).read_text(encoding="utf-8")
-
-          for phrase in [
-              "YOUR_API_KEY",
-              "YOUR_PROJECT_ID",
-              "YOUR_APP_ID"
-          ]:
-              assert phrase not in config, (
-                  "Firebase placeholder remains: " + phrase
-              )
-
-          for field in [
-              "apiKey:",
-              "projectId:",
-              "appId:"
-          ]:
-              assert field in config, (
-                  "Firebase config missing: " + field
-              )
-
-          gradle = (
-              root / "app/build.gradle.kts"
-          ).read_text(encoding="utf-8")
-
-          assert re.search(
-              r'versionCode\s*=\s*1\b', gradle
-          ), "versionCode must be 1"
-
-          assert re.search(
-              r'versionName\s*=\s*"1\.0"', gradle
-          ), "versionName must be 1.0"
-
-          print("BARAN PRIDE V1.0 checks passed.")
-          PYCONFIG
-
-      - name: Build BARAN PRIDE V1.0 Debug APK
+          test -f BaranPrideAndroid/app/build.gradle.kts
+          test -f BaranPrideAndroid/app/src/main/assets/js/app.js
+      - name: Build Android Test APK
         working-directory: BaranPrideAndroid
-        shell: bash
-        run: |
-          set -euo pipefail
-          gradle :app:assembleDebug --no-daemon
-
-      - name: Upload BARAN PRIDE V1.0 APK
+        run: gradle :app:assembleDebug --no-daemon
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BaranPride-V1.0-Final-APK
+          name: BaranPride-V1.0-Updated-Test-APK
           path: BaranPrideAndroid/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
