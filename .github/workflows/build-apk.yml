@@ -1,5 +1,7 @@
-name: Build BARAN PRIDE V1.0 Updated APK
-'on':
+
+name: Build BARAN PRIDE V1.0 Restored APK
+
+on:
   workflow_dispatch:
 
 permissions:
@@ -8,41 +10,99 @@ permissions:
 jobs:
   build-apk:
     runs-on: ubuntu-24.04
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
       - name: Set up Java 17
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
+
       - name: Install Android SDK packages
         shell: bash
         run: |
           set -euo pipefail
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          if [ ! -x "$SDKMANAGER" ]; then SDKMANAGER="$(command -v sdkmanager)"; fi
-          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" "platforms;android-35" "build-tools;35.0.0"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(command -v sdkmanager)"
+          fi
+          yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" \
+            "platforms;android-35" \
+            "build-tools;35.0.0" || true
+
       - name: Extract Updated Project ZIP
         shell: bash
         run: |
           set -euo pipefail
+
           FILE="BaranPride_V1_0_UPDATED_SOURCE.zip"
-          test -s "$FILE" || { echo "Missing $FILE"; exit 1; }
+
+          echo "Checking ZIP file..."
+
+          if [ ! -s "$FILE" ]; then
+            echo "::error::Missing ZIP: $FILE"
+            ls -lah
+            exit 1
+          fi
+
+          echo "Checking ZIP integrity..."
           unzip -t "$FILE" >/dev/null
-          unzip -q "$FILE"
-          test -f BaranPrideAndroid/app/build.gradle.kts
-          test -f BaranPrideAndroid/app/src/main/assets/js/app.js
+
+          echo "Extracting Android source..."
+          mkdir -p extracted
+          unzip -oq "$FILE" -d extracted
+
+          echo "Finding Android project..."
+
+          PROJECT=$(find extracted \
+            -type f \
+            -name settings.gradle.kts \
+            -print -quit)
+
+          if [ -z "$PROJECT" ]; then
+            echo "::error::Android project not found in ZIP"
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$PROJECT")
+
+          echo "Project found: $PROJECT_DIR"
+
+          test -f "$PROJECT_DIR/app/build.gradle.kts" || {
+            echo "::error::App Gradle file missing"
+            exit 1
+          }
+
+          test -f "$PROJECT_DIR/app/src/main/AndroidManifest.xml" || {
+            echo "::error::Android Manifest missing"
+            exit 1
+          }
+
+          echo "Copying project..."
+          mkdir -p android-build
+          cp -a "$PROJECT_DIR/." android-build/
+
+          echo "Android source ready."
+
       - name: Build Android Test APK
-        working-directory: BaranPrideAndroid
-        run: gradle :app:assembleDebug --no-daemon
+        shell: bash
+        working-directory: android-build
+        run: |
+          set -euo pipefail
+          gradle :app:assembleDebug --no-daemon --stacktrace
+
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BaranPride-V1.0-Updated-Test-APK
-          path: BaranPrideAndroid/app/build/outputs/apk/debug/app-debug.apk
+          name: BaranPride-Restored-Debug-APK
+          path: android-build/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+          retention-days: 30
